@@ -3,6 +3,28 @@ from fastapi import FastAPI
 import sqlite3
 import hashlib
 
+def add_email_to_online(email, online_list):
+    online_list.append(email)
+    print(f"Email {email} added to the online list.")
+
+def delete_email_from_online(email, online_list):
+    if email in online_list:
+        online_list.remove(email)
+        print(f"Email {email} deleted from the online list.")
+    else:
+        print(f"Email {email} not found in the online list.")
+
+def list_online_emails(online_list):
+    if online_list:
+        print("Online emails:")
+        for email in online_list:
+            print(email)
+    else:
+        print("No emails are currently online.")
+
+global online_emails
+online_emails = []
+
 def create_database():
     conn = sqlite3.connect('user_database.db')
     cursor = conn.cursor()
@@ -101,3 +123,10 @@ def register_api(email_id, password_id):
 def login_api(email_id, password_id):
     AccountStatus = login_user(email_id, password_id)
     return AccountStatus
+
+@app.get("/OnlineUser/{email_id}")
+def OnlineUser(email_id):
+    print('Succes')
+    add_email_to_online(email_id, online_emails)
+    print(online_emails)
+    return

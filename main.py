@@ -2,6 +2,7 @@ import flet as ft
 import requests
 import json
 import re
+import time
 
 def is_string(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -11,7 +12,33 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
+    def Home_Page(e=None):
+        requests.get(f"http://127.0.0.1:8000/OnlineUser/{page.client_storage.get('email')}")
+        page.clean()
+        def LogOut(e):
+            page.client_storage.remove("email")
+            Register_Page()
 
+        NavigationBar = ft.AppBar(
+            leading=ft.Icon(ft.icons.PALETTE),
+            leading_width=40,
+            title=ft.Text(f"Welcome {page.client_storage.get('email')}"),
+            center_title=False,
+
+            bgcolor=ft.colors.SURFACE_VARIANT,
+            actions=[
+                ft.IconButton(ft.icons.WB_SUNNY_OUTLINED),
+                ft.IconButton(ft.icons.FILTER_3),
+                ft.PopupMenuButton(
+                    items=[
+                        ft.PopupMenuItem(
+                            text="Log out", checked=False, on_click=LogOut
+                        ),
+                    ]
+                ),
+            ],
+        )
+        page.add(NavigationBar)
     def Login_Page(e=None):
         page.clean()
         def login(e):
@@ -22,6 +49,8 @@ def main(page: ft.Page):
             page.update()
             if jsonreturn["bool"] == True:
                 page.client_storage.set("email", Email_register.value)
+                time.sleep(2)
+                Home_Page()
 
         status_text_bar = ft.Text()    
         Email_register = ft.TextField(label="Email")    
@@ -65,6 +94,8 @@ def main(page: ft.Page):
             print(value)
             if value == None:
                 Register_Page()
+            else:
+                Home_Page()
         except:
             Register_Page()
 
