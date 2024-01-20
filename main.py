@@ -12,8 +12,21 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
+    def SearchOnlineUsers_Page(e):
+        def AddUserToFriendList(e):
+            print(e.control.data)
+            requests.post(f"http://127.0.0.1:8000/AddToFriendList/{page.client_storage.get('email')},{e.control.data}")
+
+
+        page.clean()
+        OnlineUserList = requests.get("http://127.0.0.1:8000/ListOnlineUsers")
+        jsonreturn = json.loads(OnlineUserList.text)
+        for user in jsonreturn["onlineusers"]:
+            ListOnlineUser = ft.TextButton(text=f"Add: {user}", on_click=AddUserToFriendList, data=user)
+            page.add(ListOnlineUser)
+
     def Home_Page(e=None):
-        requests.get(f"http://127.0.0.1:8000/OnlineUser/{page.client_storage.get('email')}")
+        requests.post(f"http://127.0.0.1:8000/OnlineUser/{page.client_storage.get('email')}")
         page.clean()
         def LogOut(e):
             page.client_storage.remove("email")
@@ -34,6 +47,9 @@ def main(page: ft.Page):
                         ft.PopupMenuItem(
                             text="Log out", checked=False, on_click=LogOut
                         ),
+                        ft.PopupMenuItem(
+                            text="Search Online Users", checked=False, on_click=SearchOnlineUsers_Page
+                        )
                     ]
                 ),
             ],
@@ -43,7 +59,7 @@ def main(page: ft.Page):
         page.clean()
         def login(e):
             login_api = f'http://127.0.0.1:8000/LoginIntoAaccount/{Email_register.value},{Password_register.value}'
-            return_from_api_login = requests.get(login_api)
+            return_from_api_login = requests.post(login_api)
             jsonreturn = json.loads(return_from_api_login.text)
             status_text_bar.value = f"Status: {jsonreturn['status']}"
             page.update()
@@ -68,7 +84,7 @@ def main(page: ft.Page):
             is_string_answer = is_string(Email_register.value)
             if is_string_answer:
                 register_api = f'http://127.0.0.1:8000/RegisterAnewAccount/{Email_register.value},{Password_register.value}'
-                return_from_api_register = requests.get(register_api)
+                return_from_api_register = requests.post(register_api)
                 jsonreturn = json.loads(return_from_api_register.text)
                 status_text_bar.value = f"Status: {jsonreturn['status']}"
             else:
@@ -91,7 +107,6 @@ def main(page: ft.Page):
     def PageOnLoad():
         try: 
             value = page.client_storage.get("email")
-            print(value)
             if value == None:
                 Register_Page()
             else:
