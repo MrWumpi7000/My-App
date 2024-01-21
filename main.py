@@ -12,18 +12,68 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
+    def Chat_Page(e):
+        def chatwithfriend(e):
+            def SendText(e=None):
+                FriendMessage = ft.Text()
+                page.add(FriendMessage)
+
+            page.clean()
+            page.horizontal_alignment = "stretch"
+            page.title = f"Friend Chat with {e.control.data}"
+            page.update()
+            MessageText = ft.TextField(label="Standard")
+            SendButton = ft.ElevatedButton(text="Send Message", on_click=SendText)
+            page.add(MessageText, SendButton)
+
+
+
+        page.clean()
+        FriendList = requests.get(f"http://127.0.0.1:8000/GetAllFriends/{page.client_storage.get('email')}")
+        jsonreturn = json.loads(FriendList.text)
+        for friend in jsonreturn["friends"]:
+            FriendChatButton = ft.FilledButton(text=friend, on_click=chatwithfriend, data=friend)
+            page.add(FriendChatButton)
+
     def SearchOnlineUsers_Page(e):
+        page.clean()
+
         def AddUserToFriendList(e):
             print(e.control.data)
             requests.post(f"http://127.0.0.1:8000/AddToFriendList/{page.client_storage.get('email')},{e.control.data}")
 
+        NavigationBar = ft.AppBar(
+            leading=ft.Icon(ft.icons.PALETTE),
+            leading_width=40,
+            title=ft.Text(f"Welcome {page.client_storage.get('email')}"),
+            center_title=False,
 
-        page.clean()
+            bgcolor=ft.colors.SURFACE_VARIANT,
+            actions=[
+                ft.Text("Online User Page"),
+                ft.IconButton(ft.icons.FILTER_3),
+                ft.PopupMenuButton(
+                    items=[
+                        ft.PopupMenuItem(
+                            text="Home Page", checked=False, on_click=Home_Page
+                        ),
+                        ft.PopupMenuItem(
+                            text="Chat Page", checked=False, on_click=Chat_Page
+                        )
+                    ]
+                ),
+            ],
+        )
+        page.add(NavigationBar)
+
         OnlineUserList = requests.get("http://127.0.0.1:8000/ListOnlineUsers")
         jsonreturn = json.loads(OnlineUserList.text)
         for user in jsonreturn["onlineusers"]:
-            ListOnlineUser = ft.TextButton(text=f"Add: {user}", on_click=AddUserToFriendList, data=user)
-            page.add(ListOnlineUser)
+            if user == page.client_storage.get("email"):
+                print("Own Email")
+            else:
+                ListOnlineUser = ft.TextButton(text=f"Add: {user}", on_click=AddUserToFriendList, data=user)
+                page.add(ListOnlineUser)
 
     def Home_Page(e=None):
         requests.post(f"http://127.0.0.1:8000/OnlineUser/{page.client_storage.get('email')}")
@@ -49,6 +99,9 @@ def main(page: ft.Page):
                         ),
                         ft.PopupMenuItem(
                             text="Search Online Users", checked=False, on_click=SearchOnlineUsers_Page
+                        ),
+                                                ft.PopupMenuItem(
+                            text="Chat Page", checked=False, on_click=Chat_Page
                         )
                     ]
                 ),

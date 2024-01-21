@@ -2,6 +2,10 @@
 from fastapi import FastAPI
 import sqlite3
 import hashlib
+import uvicorn
+
+global online_emails
+online_emails = []
 
 def add_email_to_online(email, online_list):
     if email in online_list:
@@ -25,25 +29,79 @@ def list_online_emails(online_list):
     else:
         print("No emails are currently online.")
 
-global online_emails
-online_emails = []
-
 def AddUserIDtoEmail(email, email_friend):
-    conn = sqlite3.connect('user_database.db')
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO friendships (user_id, friend_id)
-        VALUES (
-            (SELECT id FROM users WHERE email=?),
-            (SELECT id FROM users WHERE email=?)
-        )
-    ''', (email, email_friend))
 
-    conn.commit()
+    cursor.execute('SELECT id FROM users WHERE email=?', (email,))
+    user_id = cursor.fetchone()
+    cursor.execute('SELECT id FROM users WHERE email=?', (email_friend,))
+    friend_id = cursor.fetchone()
+
+    if user_id and friend_id:
+        cursor.execute('''
+            INSERT INTO friendships (user_id, friend_id)
+            SELECT ?, ? WHERE NOT EXISTS (
+                SELECT 1 FROM friendships
+                WHERE (
+                    user_id = ?
+                    AND friend_id = ?
+                )
+            )
+        ''', (
+            str(user_id[0]),
+            str(friend_id[0]),
+            str(user_id[0]),
+            str(friend_id[0])
+        ))
+
+        conn.commit()
+
+        if cursor.rowcount > 0:
+            print("Friendship added successfully.")
+        else:
+            print("Friendship already exists.")
+
+    elif user_id is None:
+        print(f"User with email '{email}' not found.")
+    elif friend_id is None:
+        print(f"Friend with email '{email_friend}' not found.")
+
     conn.close()
-    
+
+def get_friend_list(email):
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT id FROM users
+        WHERE email = ?
+    ''', (email,))
+
+    user_id = cursor.fetchone()
+
+    if user_id:
+        print(user_id[0])
+        cursor.execute('''
+            SELECT
+                usr.email AS user_email,
+                frnds.email AS friend_email
+            FROM friendships
+            LEFT JOIN users frnds ON friendships.friend_id = frnds.id
+            LEFT JOIN users usr ON usr.id = friendships.user_id
+            WHERE friendships.user_id = ?
+        ''', (str(user_id[0])))
+
+        friend_list = [row[1] for row in cursor.fetchall()]
+        print(f"Friend list for '{email}': {friend_list}")
+        return friend_list
+    else:
+        print(f"User with email '{email}' not found.")
+
+    conn.close()
+
 def create_database():
-    conn = sqlite3.connect('user_database.db')
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
     cursor = conn.cursor()
 
     cursor.execute('''
@@ -65,7 +123,7 @@ def create_database():
     conn.close()
 
 def register_user(email, password):
-    conn = sqlite3.connect('user_database.db')
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
     cursor = conn.cursor()
 
     cursor.execute('''
@@ -92,7 +150,7 @@ def register_user(email, password):
     return "Registration successful."
 
 def login_user(email, password):
-    conn = sqlite3.connect('user_database.db')
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
     cursor = conn.cursor()
 
     cursor.execute('''
@@ -156,8 +214,19 @@ def ListOnlineUsers():
 }
     return jsonstring
 
-@app.post("/AddToFriendList/{email_id}, {friend_email_id}")
+@app.get("/AddToFriendList/{email_id},{friend_email_id}")
 def AddToFriendList(email_id, friend_email_id):
     AddUserIDtoEmail(email=email_id, email_friend=friend_email_id)
-
     return
+
+
+@app.get("/GetAllFriends/{email_id}")
+def AddToFriendList(email_id):
+    friends = get_friend_list(email=email_id)
+    jsonstring = {
+        "friends": friends
+    }
+    return jsonstring
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
