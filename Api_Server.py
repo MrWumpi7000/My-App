@@ -38,6 +38,7 @@ def AddUserIDtoEmail(email, email_friend):
     cursor.execute('SELECT id FROM users WHERE email=?', (email_friend,))
     friend_id = cursor.fetchone()
 
+
     if user_id and friend_id:
         cursor.execute('''
             INSERT INTO friendships (user_id, friend_id)
@@ -67,6 +68,65 @@ def AddUserIDtoEmail(email, email_friend):
     elif friend_id is None:
         print(f"Friend with email '{email_friend}' not found.")
 
+    conn.close()
+
+def get_chat_messages(user_id:str, friend_id:str):
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT id FROM users
+        WHERE email = ?
+    ''', (user_id,))
+    
+    user_id = cursor.fetchone()
+
+    cursor.execute('''
+        SELECT id FROM users
+        WHERE email = ?
+    ''', (friend_id,))
+
+    friend_id = cursor.fetchone()
+
+    cursor.execute('''
+        SELECT message FROM chatmessages
+        WHERE (user_id = ?
+            AND friend_id = ?)
+                OR (friend_id = ?
+                   AND user_id = ?)
+        ORDER BY timestamp ASC
+    ''', (str(user_id[0]), str(friend_id[0]), str(user_id[0]), str(friend_id[0])))
+
+    messages = cursor.fetchall()
+
+    for message in messages:
+        print(message)
+
+    return messages
+def save_chat_messages(user_id:str, friend_id:str, chat_message:str):
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT id FROM users
+        WHERE email = ?
+    ''', (user_id,))
+    
+    user_id = cursor.fetchone()
+
+    cursor.execute('''
+        SELECT id FROM users
+        WHERE email = ?
+    ''', (friend_id,))
+
+    friend_id = cursor.fetchone()
+
+    cursor.execute('''
+        INSERT INTO chatmessages (user_id, friend_id, message)
+        VALUES (?, ?, ?)
+    ''', (str(user_id[0]), str(friend_id[0]), str(chat_message)))
+    
+    conn.commit()
     conn.close()
 
 def get_friend_list(email):
@@ -116,6 +176,16 @@ def create_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INT NOT NULL,
             friend_id INT NOT NULL
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chatmessages (
+            message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INT NOT NULL,
+            friend_id INT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
         )
     ''')
 
@@ -214,11 +284,20 @@ def ListOnlineUsers():
 }
     return jsonstring
 
-@app.get("/AddToFriendList/{email_id},{friend_email_id}")
+@app.post("/AddToFriendList/{email_id},{friend_email_id}")
 def AddToFriendList(email_id, friend_email_id):
     AddUserIDtoEmail(email=email_id, email_friend=friend_email_id)
     return
 
+@app.post("/PostMessages/{user_id},{friend_id},{message}")
+def PostMessages(user_id, friend_id, message):
+    save_chat_messages(user_id=user_id, friend_id=friend_id, chat_message=message)
+    return True
+
+@app.get("/GetAllMessages/{user_id},{friend_id}")
+def GetAllMessages(user_id, friend_id):
+    messages = get_chat_messages(user_id=user_id, friend_id=friend_id)
+    return messages
 
 @app.get("/GetAllFriends/{email_id}")
 def AddToFriendList(email_id):

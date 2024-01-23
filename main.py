@@ -12,19 +12,43 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
+    
     def Chat_Page(e):
         def chatwithfriend(e):
+
             def SendText(e=None):
-                FriendMessage = ft.Text()
-                page.add(FriendMessage)
+                SendButton.value = ""
+                requests.post(f"http://127.0.0.1:8000/PostMessages/{page.client_storage.get('email')},{e.control.data},{MessageText.value}")
 
             page.clean()
             page.horizontal_alignment = "stretch"
+            page.scroll = True
             page.title = f"Friend Chat with {e.control.data}"
             page.update()
             MessageText = ft.TextField(label="Standard")
-            SendButton = ft.ElevatedButton(text="Send Message", on_click=SendText)
+            SendButton = ft.ElevatedButton(text="Send Message", on_click=SendText, data=e.control.data)
             page.add(MessageText, SendButton)
+            lv = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
+
+
+
+    for i in range(0, 60):
+        lv.controls.append(ft.Text(f"Line {count}"))
+        count += 1
+
+    page.add(lv)
+
+    for i in range(0, 60):
+        sleep(1)
+        lv.controls.append(ft.Text(f"Line {count}"))
+        count += 1
+        page.update()
+
+
+            while True:
+                time.sleep(1)
+                getmessages = requests.get(f"http://127.0.0.1:8000/GetAllMessages/{page.client_storage.get('email')},{e.control.data}")
+
 
 
 
