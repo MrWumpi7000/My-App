@@ -3,10 +3,17 @@ import requests
 import json
 import re
 import time
+import asyncio
+import websockets
+import tracemalloc
+from websocket import create_connection
+from datetime import datetime
+
+tracemalloc.start()
 
 def is_string(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    
+
     match = re.match(pattern, email)
     
     return bool(match)
@@ -15,41 +22,33 @@ def main(page: ft.Page):
     
     def Chat_Page(e):
         def chatwithfriend(e):
-
-            def SendText(e=None):
-                SendButton.value = ""
-                requests.post(f"http://127.0.0.1:8000/PostMessages/{page.client_storage.get('email')},{e.control.data},{MessageText.value}")
-
             page.clean()
             page.horizontal_alignment = "stretch"
             page.scroll = True
             page.title = f"Friend Chat with {e.control.data}"
             page.update()
-            MessageText = ft.TextField(label="Standard")
+
+            def SendText(e):
+                ws = create_connection(f"ws://localhost:8000/sendtext/{page.client_storage.get('email')}/{e.control.data}")
+                ws.send(MessageText.value)
+                MessageText.value = ""
+                WsResult = ws.recv()
+                MessageTextr = ft.Text(f"{str(date.today())}: {WsResult}")
+                page.add(MessageTextr)
+
+
+            MessageText = ft.TextField(label="Message")
             SendButton = ft.ElevatedButton(text="Send Message", on_click=SendText, data=e.control.data)
             page.add(MessageText, SendButton)
-            lv = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
+            ws = create_connection(f"ws://localhost:8000/gettext/{page.client_storage.get('email')}/{e.control.data}")
+            result =  ws.recv()
+            jsonreturn = json.loads(result)
 
-
-
-    for i in range(0, 60):
-        lv.controls.append(ft.Text(f"Line {count}"))
-        count += 1
-
-    page.add(lv)
-
-    for i in range(0, 60):
-        sleep(1)
-        lv.controls.append(ft.Text(f"Line {count}"))
-        count += 1
-        page.update()
-
-
-            while True:
-                time.sleep(1)
-                getmessages = requests.get(f"http://127.0.0.1:8000/GetAllMessages/{page.client_storage.get('email')},{e.control.data}")
-
-
+            for message in jsonreturn['messages']:
+                print(f"{message['timestamp']} --> {message['text']}")
+                date = datetime.strptime(message['timestamp'], "%Y-%m-%d %H:%M:%S")
+                MessageTextPerson = ft.Text(f"{date.strftime('%H:%M')}: {message['text']}")
+                page.add(MessageTextPerson)
 
 
         page.clean()

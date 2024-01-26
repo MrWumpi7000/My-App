@@ -3,6 +3,8 @@ from fastapi import FastAPI
 import sqlite3
 import hashlib
 import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import asyncio
 
 global online_emails
 online_emails = []
@@ -70,7 +72,7 @@ def AddUserIDtoEmail(email, email_friend):
 
     conn.close()
 
-def get_chat_messages(user_id:str, friend_id:str):
+def get_chat_messages(user_id: str, friend_id: str):
     conn = sqlite3.connect('My-App/My-App/user_database.db')
     cursor = conn.cursor()
 
@@ -78,31 +80,46 @@ def get_chat_messages(user_id:str, friend_id:str):
         SELECT id FROM users
         WHERE email = ?
     ''', (user_id,))
-    
-    user_id = cursor.fetchone()
+
+    user_result = cursor.fetchone()
 
     cursor.execute('''
         SELECT id FROM users
         WHERE email = ?
     ''', (friend_id,))
 
-    friend_id = cursor.fetchone()
+    friend_result = cursor.fetchone()
+
+    # Check if results are not None
+    if user_result is None or friend_result is None:
+        return {
+            "messages": []  # or handle the case where user or friend is not found
+        }
+
+    user_id = str(user_result[0])
+    friend_id = str(friend_result[0])
 
     cursor.execute('''
-        SELECT message FROM chatmessages
-        WHERE (user_id = ?
-            AND friend_id = ?)
-                OR (friend_id = ?
-                   AND user_id = ?)
+        SELECT message, timestamp, user_id FROM chatmessages
+        WHERE (user_id = ? AND friend_id = ?)
+            OR (friend_id = ? AND user_id = ?)
         ORDER BY timestamp ASC
-    ''', (str(user_id[0]), str(friend_id[0]), str(user_id[0]), str(friend_id[0])))
+    ''', (user_id, friend_id, user_id, friend_id))
 
     messages = cursor.fetchall()
 
-    for message in messages:
-        print(message)
+    formatted_messages = [
+        {
+            "text": message[0],
+            "timestamp": message[1]
+        }
+        for message in messages
+    ]
 
-    return messages
+    return {
+        "messages": formatted_messages
+    }
+
 def save_chat_messages(user_id:str, friend_id:str, chat_message:str):
     conn = sqlite3.connect('My-App/My-App/user_database.db')
     cursor = conn.cursor()
@@ -294,10 +311,6 @@ def PostMessages(user_id, friend_id, message):
     save_chat_messages(user_id=user_id, friend_id=friend_id, chat_message=message)
     return True
 
-@app.get("/GetAllMessages/{user_id},{friend_id}")
-def GetAllMessages(user_id, friend_id):
-    messages = get_chat_messages(user_id=user_id, friend_id=friend_id)
-    return messages
 
 @app.get("/GetAllFriends/{email_id}")
 def AddToFriendList(email_id):
@@ -306,6 +319,44 @@ def AddToFriendList(email_id):
         "friends": friends
     }
     return jsonstring
+
+connections = {}
+
+
+@app.websocket("/gettext/{user_id}/{friend_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str):
+    await websocket.accept()
+    connections[user_id] = websocket
+
+    try:
+        while True:
+            messages = get_chat_messages(user_id=user_id, friend_id=friend_id)
+            print(messages)
+            await websocket.send_json(messages)
+
+            data = await websocket.receive_text()
+            print(f"Received message from {user_id} to {friend_id}: {data}")
+
+    except Exception as e:
+        print(f"WebSocket closed with exception: {e}")
+    finally:
+        del connections[user_id]
+
+
+@app.websocket("/sendtext/{user_id}/{friend_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str):
+    await websocket.accept()
+    connections[user_id] = websocket
+
+    try:
+        while True:
+            user_message = await websocket.receive_text()
+            print(user_message)
+            await websocket.send_json(user_message)
+    except Exception as e:
+        print(f"WebSocket closed with exception: {e}")
+    finally:
+        del connections[user_id]
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
