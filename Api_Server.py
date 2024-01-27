@@ -6,6 +6,8 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import asyncio
 
+connections = {}
+
 global online_emails
 online_emails = []
 
@@ -320,7 +322,6 @@ def AddToFriendList(email_id):
     }
     return jsonstring
 
-connections = {}
 
 
 @app.websocket("/gettext/{user_id}/{friend_id}")
@@ -351,8 +352,13 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str)
     try:
         while True:
             user_message = await websocket.receive_text()
+            save_chat_messages(user_id=user_id, friend_id=friend_id, chat_message=user_message)
             print(user_message)
-            await websocket.send_json(user_message)
+            jsonstring = {
+        "messages": user_message
+     }
+            await websocket.send_json(jsonstring)
+            
     except Exception as e:
         print(f"WebSocket closed with exception: {e}")
     finally:

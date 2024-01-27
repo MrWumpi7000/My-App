@@ -23,23 +23,64 @@ def main(page: ft.Page):
     def Chat_Page(e):
         def chatwithfriend(e):
             page.clean()
-            page.horizontal_alignment = "stretch"
             page.scroll = True
+            page.horizontal_alignment = "stretch"
+            page.auto_scroll = True  
             page.title = f"Friend Chat with {e.control.data}"
             page.update()
 
             def SendText(e):
-                ws = create_connection(f"ws://localhost:8000/sendtext/{page.client_storage.get('email')}/{e.control.data}")
-                ws.send(MessageText.value)
+                if MessageText.value == "":
+                    return
+                wsc = create_connection(f"ws://localhost:8000/sendtext/{page.client_storage.get('email')}/{e.control.data}")
+                wsc.send(MessageText.value)
                 MessageText.value = ""
-                WsResult = ws.recv()
-                MessageTextr = ft.Text(f"{str(date.today())}: {WsResult}")
-                page.add(MessageTextr)
+                WsResult = wsc.recv()
+                jsonreturnfromSocket = json.loads(WsResult)
+                now = datetime.now()
+                current_time = now.strftime("%H:%M")
+                MessageTextr = ft.Text(f"{current_time}: {jsonreturnfromSocket['messages']}")
+                chat.controls.append(MessageTextr)
+                page.update()
 
 
-            MessageText = ft.TextField(label="Message")
-            SendButton = ft.ElevatedButton(text="Send Message", on_click=SendText, data=e.control.data)
-            page.add(MessageText, SendButton)
+            chat = ft.ListView(
+                auto_scroll=True,
+                spacing=10
+            )
+
+            # A new message entry form
+            MessageText = ft.TextField(
+                hint_text="Write a message...",
+                expand=True,
+                autofocus=True,
+                shift_enter=True,
+                min_lines=1,
+                max_lines=5,
+                filled=True,
+                on_submit=SendText,
+                data = e.control.data
+            )
+
+            # Add everything to the page
+            page.add(
+                ft.Container(
+                    content=chat,
+                    border=ft.border.all(1, ft.colors.OUTLINE),
+                    border_radius=5,
+                    padding=10,
+                ),
+                ft.Row(
+                    [
+                        MessageText,
+                        ft.IconButton(
+                            icon=ft.icons.SEND_ROUNDED,
+                            on_click=SendText,
+                            data = e.control.data
+                        ),
+                    ]
+                ),
+            )
             ws = create_connection(f"ws://localhost:8000/gettext/{page.client_storage.get('email')}/{e.control.data}")
             result =  ws.recv()
             jsonreturn = json.loads(result)
@@ -48,9 +89,10 @@ def main(page: ft.Page):
                 print(f"{message['timestamp']} --> {message['text']}")
                 date = datetime.strptime(message['timestamp'], "%Y-%m-%d %H:%M:%S")
                 MessageTextPerson = ft.Text(f"{date.strftime('%H:%M')}: {message['text']}")
-                page.add(MessageTextPerson)
-
-
+                chat.controls.append(MessageTextPerson)
+                page.update()
+ #               page.scroll_to()
+            
         page.clean()
         FriendList = requests.get(f"http://127.0.0.1:8000/GetAllFriends/{page.client_storage.get('email')}")
         jsonreturn = json.loads(FriendList.text)
