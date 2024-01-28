@@ -5,11 +5,41 @@ import re
 import time
 import asyncio
 import websockets
+import hashlib
 import tracemalloc
 from websocket import create_connection
 from datetime import datetime
 
 tracemalloc.start()
+
+def combine_and_hash(str1, str2):
+    combined_string = ''.join(sorted([str1, str2]))
+    hashed_result = hashlib.sha256(combined_string.encode()).hexdigest()
+    return hashed_result
+
+def get_initials(user_name: str):
+        if user_name:
+            return user_name[:1].capitalize()
+        else:
+            return "Unknown"  # or any default value you prefer
+
+def get_avatar_color(user_name: str):
+        colors_lookup = [
+            ft.colors.AMBER,
+            ft.colors.BLUE,
+            ft.colors.BROWN,
+            ft.colors.CYAN,
+            ft.colors.GREEN,
+            ft.colors.INDIGO,
+            ft.colors.LIME,
+            ft.colors.ORANGE,
+            ft.colors.PINK,
+            ft.colors.PURPLE,
+            ft.colors.RED,
+            ft.colors.TEAL,
+            ft.colors.YELLOW,
+        ]
+        return colors_lookup[hash(user_name) % len(colors_lookup)]
 
 def is_string(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -19,37 +49,35 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
-    
     def Chat_Page(e):
         def chatwithfriend(e):
             page.clean()
-            page.scroll = True
+            page.scroll = ft.ScrollMode.AUTO
             page.horizontal_alignment = "stretch"
-            page.auto_scroll = True  
             page.title = f"Friend Chat with {e.control.data}"
             page.update()
+
+            def on_message(topic, message):
+                chat.controls.append(ft.Text(message))
+                page.update()
 
             def SendText(e):
                 if MessageText.value == "":
                     return
                 wsc = create_connection(f"ws://localhost:8000/sendtext/{page.client_storage.get('email')}/{e.control.data}")
                 wsc.send(MessageText.value)
+                page.pubsub.send_all_on_topic(combine_and_hash(page.client_storage.get('email'), e.control.data), MessageText.value)
                 MessageText.value = ""
-                WsResult = wsc.recv()
-                jsonreturnfromSocket = json.loads(WsResult)
-                now = datetime.now()
-                current_time = now.strftime("%H:%M")
-                MessageTextr = ft.Text(f"{current_time}: {jsonreturnfromSocket['messages']}")
-                chat.controls.append(MessageTextr)
-                page.update()
 
+            print (combine_and_hash(page.client_storage.get('email'), e.control.data))
+
+            page.pubsub.subscribe_topic(combine_and_hash(page.client_storage.get('email'), e.control.data) ,on_message)
 
             chat = ft.ListView(
                 auto_scroll=True,
                 spacing=10
             )
 
-            # A new message entry form
             MessageText = ft.TextField(
                 hint_text="Write a message...",
                 expand=True,
@@ -62,13 +90,12 @@ def main(page: ft.Page):
                 data = e.control.data
             )
 
-            # Add everything to the page
             page.add(
                 ft.Container(
                     content=chat,
                     border=ft.border.all(1, ft.colors.OUTLINE),
                     border_radius=5,
-                    padding=10,
+                    padding=10
                 ),
                 ft.Row(
                     [
@@ -86,16 +113,36 @@ def main(page: ft.Page):
             jsonreturn = json.loads(result)
 
             for message in jsonreturn['messages']:
-                print(f"{message['timestamp']} --> {message['text']}")
                 date = datetime.strptime(message['timestamp'], "%Y-%m-%d %H:%M:%S")
-                MessageTextPerson = ft.Text(f"{date.strftime('%H:%M')}: {message['text']}")
+                bla = [
+                    ft.CircleAvatar(
+                        content=ft.Text(get_initials(message['sending_user'])),
+                        color=ft.colors.WHITE,
+                        bgcolor=get_avatar_color(message['sending_user']),
+                    ),
+                    ft.Column(
+                        [
+                            ft.Text(f"{message['sending_user']} {date.strftime('%m-%d: %H:%M')}Uhr", weight="bold"),
+                            ft.Text(message['text'], selectable=True),
+                        ],
+                        tight=True,
+                        spacing=5,
+                        scroll=ft.ScrollMode.AUTO,
+                    ),
+                ]
+
+                MessageTextPerson = ft.Row(
+                    controls=bla,
+                    auto_scroll=True,
+                    scroll=ft.ScrollMode.AUTO,
+                )
                 chat.controls.append(MessageTextPerson)
                 page.update()
- #               page.scroll_to()
             
         page.clean()
         FriendList = requests.get(f"http://127.0.0.1:8000/GetAllFriends/{page.client_storage.get('email')}")
         jsonreturn = json.loads(FriendList.text)
+
         for friend in jsonreturn["friends"]:
             FriendChatButton = ft.FilledButton(text=friend, on_click=chatwithfriend, data=friend)
             page.add(FriendChatButton)
@@ -173,6 +220,7 @@ def main(page: ft.Page):
             ],
         )
         page.add(NavigationBar)
+
     def Login_Page(e=None):
         page.clean()
         def login(e):

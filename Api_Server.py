@@ -102,18 +102,27 @@ def get_chat_messages(user_id: str, friend_id: str):
     friend_id = str(friend_result[0])
 
     cursor.execute('''
-        SELECT message, timestamp, user_id FROM chatmessages
-        WHERE (user_id = ? AND friend_id = ?)
-            OR (friend_id = ? AND user_id = ?)
+        SELECT
+            message,
+            timestamp,
+            sending_user.email AS sending_user_email,
+            receiving_user.email AS receiving_user_email
+        FROM chatmessages
+        JOIN users sending_user ON sending_user.id=chatmessages.user_id
+        JOIN users receiving_user ON receiving_user.id=chatmessages.friend_id
+        WHERE (chatmessages.user_id = ? AND chatmessages.friend_id = ?)
+            OR (chatmessages.friend_id = ? AND chatmessages.user_id = ?)
         ORDER BY timestamp ASC
     ''', (user_id, friend_id, user_id, friend_id))
 
     messages = cursor.fetchall()
-
+    
     formatted_messages = [
         {
             "text": message[0],
-            "timestamp": message[1]
+            "timestamp": message[1],
+            "sending_user": message[2],
+            "receiving_user": message[3]
         }
         for message in messages
     ]
@@ -327,8 +336,7 @@ def AddToFriendList(email_id):
 @app.websocket("/gettext/{user_id}/{friend_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str):
     await websocket.accept()
-    connections[user_id] = websocket
-
+    
     try:
         while True:
             messages = get_chat_messages(user_id=user_id, friend_id=friend_id)
