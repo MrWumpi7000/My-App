@@ -9,8 +9,16 @@ import hashlib
 import tracemalloc
 from websocket import create_connection
 from datetime import datetime
+from dataclasses import dataclass
 
 tracemalloc.start()
+
+@dataclass
+class Messageclass:
+    user: str
+    text: str
+    timestamp: datetime
+
 
 def combine_and_hash(str1, str2):
     combined_string = ''.join(sorted([str1, str2]))
@@ -58,24 +66,56 @@ def main(page: ft.Page):
             page.update()
 
             def on_message(topic, message):
-                chat.controls.append(ft.Text(message))
+                datefromsenduser = message.timestamp
+                test = date.fromisoformat(datefromsenduser)
+                format_for_chat_pubsub = [
+                    ft.CircleAvatar(
+                        content=ft.Text(get_initials(message.user)),
+                        color=ft.colors.WHITE,
+                        bgcolor=get_avatar_color(message.user),
+                    ),
+                    ft.Column(
+                        [
+                            ft.Text(f"{message.user} {test.strftime('%m-%d: %H:%M')}Uhr", weight="bold"),
+                            ft.Text(message.text, selectable=True),
+                        ],
+                        tight=True,
+                        spacing=5,
+                        scroll=ft.ScrollMode.AUTO,
+                    ),
+                ]
+
+                MessageFinnallPubsub = ft.Row(
+                    controls=format_for_chat_pubsub,
+                    auto_scroll=True,
+                    scroll=ft.ScrollMode.AUTO,
+                )
+                chat.controls.append(MessageFinnallPubsub)
                 page.update()
 
             def SendText(e):
                 if MessageText.value == "":
                     return
+                
+                now = datetime.now()
+                dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
                 wsc = create_connection(f"ws://localhost:8000/sendtext/{page.client_storage.get('email')}/{e.control.data}")
                 wsc.send(MessageText.value)
-                page.pubsub.send_all_on_topic(combine_and_hash(page.client_storage.get('email'), e.control.data), MessageText.value)
+                page.pubsub.send_all_on_topic(combine_and_hash(page.client_storage.get('email'), e.control.data), Messageclass(page.client_storage.get('email'), MessageText.value, dt_string))
                 MessageText.value = ""
 
+            def Delete_Message(e):
+                Delete_Status = requests.post(f"http://127.0.0.1:8000/DeleteMesssage/{e.control.data['message_id']}")
+                print(Delete_Status)
+                chat.controls.remove(e.control.data['message_id'])
+                page.update()
+                
             print (combine_and_hash(page.client_storage.get('email'), e.control.data))
 
             page.pubsub.subscribe_topic(combine_and_hash(page.client_storage.get('email'), e.control.data) ,on_message)
 
             chat = ft.ListView(
-                auto_scroll=True,
-                spacing=10
+                spacing=10, auto_scroll=True
             )
 
             MessageText = ft.TextField(
@@ -123,20 +163,29 @@ def main(page: ft.Page):
                     ft.Column(
                         [
                             ft.Text(f"{message['sending_user']} {date.strftime('%m-%d: %H:%M')}Uhr", weight="bold"),
-                            ft.Text(message['text'], selectable=True),
-                        ],
+                            ft.Row(
+                                [
+                                 ft.Text(message['text'], selectable=True),
+                                 ft.FilledButton("Delete Message",
+                            icon=ft.icons.DELETE_OUTLINE_OUTLINED,
+                            on_click= Delete_Message,
+                            data = message,
+                    
+                                )
+                    ])],
                         tight=True,
                         spacing=5,
                         scroll=ft.ScrollMode.AUTO,
                     ),
                 ]
 
-                MessageTextPerson = ft.Row(
+                MessageFinnallPubsub = ft.Row(
                     controls=bla,
                     auto_scroll=True,
                     scroll=ft.ScrollMode.AUTO,
+                    data=message['message_id']
                 )
-                chat.controls.append(MessageTextPerson)
+                chat.controls.append(MessageFinnallPubsub)
                 page.update()
             
         page.clean()

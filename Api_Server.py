@@ -11,27 +11,30 @@ connections = {}
 global online_emails
 online_emails = []
 
+def Delete_Message_from_user(message_id):
+    try:
+        conn = sqlite3.connect('My-App/My-App/user_database.db')
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM chatmessages WHERE message_id=?", (message_id,))
+        conn.commit()
+        cursor.close()
+        return True
+    
+    except Exception as e:
+        print(e)
+        return False
+
 def add_email_to_online(email, online_list):
     if email in online_list:
-        print('Email is already in list')
+        return
     else:
         online_list.append(email)
-        print(f"Email {email} added to the online list.")
 
 def delete_email_from_online(email, online_list):
     if email in online_list:
         online_list.remove(email)
-        print(f"Email {email} deleted from the online list.")
     else:
-        print(f"Email {email} not found in the online list.")
-
-def list_online_emails(online_list):
-    if online_list:
-        print("Online emails:")
-        for email in online_list:
-            print(email)
-    else:
-        print("No emails are currently online.")
+        return
 
 def AddUserIDtoEmail(email, email_friend):
     conn = sqlite3.connect('My-App/My-App/user_database.db')
@@ -92,10 +95,9 @@ def get_chat_messages(user_id: str, friend_id: str):
 
     friend_result = cursor.fetchone()
 
-    # Check if results are not None
     if user_result is None or friend_result is None:
         return {
-            "messages": []  # or handle the case where user or friend is not found
+            "messages": []
         }
 
     user_id = str(user_result[0])
@@ -106,7 +108,8 @@ def get_chat_messages(user_id: str, friend_id: str):
             message,
             timestamp,
             sending_user.email AS sending_user_email,
-            receiving_user.email AS receiving_user_email
+            receiving_user.email AS receiving_user_email,
+            message_id
         FROM chatmessages
         JOIN users sending_user ON sending_user.id=chatmessages.user_id
         JOIN users receiving_user ON receiving_user.id=chatmessages.friend_id
@@ -122,7 +125,8 @@ def get_chat_messages(user_id: str, friend_id: str):
             "text": message[0],
             "timestamp": message[1],
             "sending_user": message[2],
-            "receiving_user": message[3]
+            "receiving_user": message[3],
+            "message_id": message[4]
         }
         for message in messages
     ]
@@ -169,7 +173,6 @@ def get_friend_list(email):
     user_id = cursor.fetchone()
 
     if user_id:
-        print(user_id[0])
         cursor.execute('''
             SELECT
                 usr.email AS user_email,
@@ -181,11 +184,7 @@ def get_friend_list(email):
         ''', (str(user_id[0])))
 
         friend_list = [row[1] for row in cursor.fetchall()]
-        print(f"Friend list for '{email}': {friend_list}")
         return friend_list
-    else:
-        print(f"User with email '{email}' not found.")
-
     conn.close()
 
 def create_database():
@@ -301,7 +300,6 @@ def login_api(email_id, password_id):
 @app.post("/OnlineUser/{email_id}")
 def OnlineUser(email_id):
     add_email_to_online(email_id, online_emails)
-    print(online_emails)
     return
 
 @app.get("/ListOnlineUsers")
@@ -331,6 +329,20 @@ def AddToFriendList(email_id):
     }
     return jsonstring
 
+@app.post("/DeleteMesssage/{message_id}")
+def DeleteMessage(message_id):
+    Delete_Status = Delete_Message_from_user(message_id=message_id)
+    if Delete_Status:
+        jsonstring = {
+        "message_id": message_id
+    }
+        return jsonstring
+    elif Delete_Status == False:
+        jsonstring = {
+            "message_id": None
+        }
+        return jsonstring
+    
 
 
 @app.websocket("/gettext/{user_id}/{friend_id}")
@@ -340,11 +352,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str)
     try:
         while True:
             messages = get_chat_messages(user_id=user_id, friend_id=friend_id)
-            print(messages)
             await websocket.send_json(messages)
-
-            data = await websocket.receive_text()
-            print(f"Received message from {user_id} to {friend_id}: {data}")
 
     except Exception as e:
         print(f"WebSocket closed with exception: {e}")
@@ -361,7 +369,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str)
         while True:
             user_message = await websocket.receive_text()
             save_chat_messages(user_id=user_id, friend_id=friend_id, chat_message=user_message)
-            print(user_message)
             jsonstring = {
         "messages": user_message
      }
