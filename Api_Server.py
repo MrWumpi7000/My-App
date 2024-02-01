@@ -1,15 +1,24 @@
-
+from emailsender import *
 from fastapi import FastAPI
 import sqlite3
 import hashlib
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import asyncio
+import random
+import string
 
 connections = {}
 
 global online_emails
 online_emails = []
+
+def generate_random_string(length):
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choice(characters) for _ in range(length))
+
+def list_online_emails(online_emails):
+    return online_emails
 
 def Delete_Message_from_user(message_id):
     try:
@@ -212,7 +221,8 @@ def create_database():
             user_id INT NOT NULL,
             friend_id INT NOT NULL,
             message TEXT NOT NULL,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            view INT NOT NULL DEFAULT 0
         )
     ''')
 
@@ -244,7 +254,9 @@ def register_user(email, password):
     conn.commit()
     conn.close()
 
+    SendRegistrationMail(email=email)
     return "Registration successful."
+
 
 def login_user(email, password):
     conn = sqlite3.connect('My-App/My-App/user_database.db')
@@ -262,6 +274,7 @@ def login_user(email, password):
     if user:
         hashed_password = hashlib.sha256(password.encode()).hexdigest()
         if user[2] == hashed_password:
+            SendReminderLoginMail(email=email)
             return {
     "status": "User Logged in Successfully",
     "bool": True
@@ -329,6 +342,15 @@ def AddToFriendList(email_id):
     }
     return jsonstring
 
+@app.post("/ResetPassword/{email}")
+def ResetPassword(email):
+    code = generate_random_string(length=6)
+    ResetPasswortEmail(email=email, code=code)
+    jsonstring = {
+        "code": code
+    }
+    return jsonstring
+
 @app.post("/DeleteMesssage/{message_id}")
 def DeleteMessage(message_id):
     Delete_Status = Delete_Message_from_user(message_id=message_id)
@@ -342,29 +364,27 @@ def DeleteMessage(message_id):
             "message_id": None
         }
         return jsonstring
-    
-
-
+@app.post("/resetpassword/{password}")
+def resetpassword(password):
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+    update_password(hashed_password)
+    return
 @app.websocket("/gettext/{user_id}/{friend_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str):
     await websocket.accept()
-    
     try:
         while True:
             messages = get_chat_messages(user_id=user_id, friend_id=friend_id)
             await websocket.send_json(messages)
 
+
     except Exception as e:
         print(f"WebSocket closed with exception: {e}")
-    finally:
-        del connections[user_id]
 
 
 @app.websocket("/sendtext/{user_id}/{friend_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str):
     await websocket.accept()
-    connections[user_id] = websocket
-
     try:
         while True:
             user_message = await websocket.receive_text()
@@ -376,8 +396,6 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str)
             
     except Exception as e:
         print(f"WebSocket closed with exception: {e}")
-    finally:
-        del connections[user_id]
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -10,6 +10,8 @@ import tracemalloc
 from websocket import create_connection
 from datetime import datetime
 from dataclasses import dataclass
+import string
+import random
 
 tracemalloc.start()
 
@@ -18,7 +20,6 @@ class Messageclass:
     user: str
     text: str
     timestamp: datetime
-
 
 def combine_and_hash(str1, str2):
     combined_string = ''.join(sorted([str1, str2]))
@@ -94,9 +95,9 @@ def main(page: ft.Page):
                 page.update()
 
             def SendText(e):
-                if MessageText.value == "":
+                if MessageText.value.strip() == "":
                     return
-                
+
                 now = datetime.now()
                 dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
                 wsc = create_connection(f"ws://localhost:8000/sendtext/{page.client_storage.get('email')}/{e.control.data}")
@@ -107,8 +108,11 @@ def main(page: ft.Page):
             def Delete_Message(e):
                 Delete_Status = requests.post(f"http://127.0.0.1:8000/DeleteMesssage/{e.control.data['message_id']}")
                 print(Delete_Status)
-                chat.controls.remove(e.control.data['message_id'])
-                page.update()
+                if e.control.data['receiving_user'] == page.client_storage.get('email'):
+                    e.control.data = e.control.data['sending_user']
+                else:
+                    e.control.data = e.control.data['receiving_user']
+                chatwithfriend(e)
                 
             print (combine_and_hash(page.client_storage.get('email'), e.control.data))
 
@@ -239,6 +243,7 @@ def main(page: ft.Page):
     def Home_Page(e=None):
         requests.post(f"http://127.0.0.1:8000/OnlineUser/{page.client_storage.get('email')}")
         page.clean()
+
         def LogOut(e):
             page.client_storage.remove("email")
             Register_Page()
@@ -261,8 +266,11 @@ def main(page: ft.Page):
                         ft.PopupMenuItem(
                             text="Search Online Users", checked=False, on_click=SearchOnlineUsers_Page
                         ),
-                                                ft.PopupMenuItem(
+                        ft.PopupMenuItem(
                             text="Chat Page", checked=False, on_click=Chat_Page
+                        ),
+                        ft.PopupMenuItem(
+                            text="Qr Code Generator", checked=False
                         )
                     ]
                 ),
@@ -280,20 +288,65 @@ def main(page: ft.Page):
             page.update()
             if jsonreturn["bool"] == True:
                 page.client_storage.set("email", Email_register.value)
-                time.sleep(2)
+                time.sleep(1)
                 Home_Page()
 
+        Reset_passwort = ft.OutlinedButton(text="Reset Password", on_click=reset_passwort_page)
         status_text_bar = ft.Text()    
         Email_register = ft.TextField(label="Email")    
         Password_register = ft.TextField(label="Password", password=True, can_reveal_password=True)
         Register_Sumbit = ft.ElevatedButton(text="Login", on_click=login)
 
-        page.add(Email_register, Password_register, Register_Sumbit, status_text_bar)
+        page.add(Email_register, Password_register, Register_Sumbit,Reset_passwort, status_text_bar)
 
         Register_Link = ft.TextButton("Register", on_click=Register_Page)
         page.add(Register_Link)
 
-    def Register_Page(e=None):
+    def reset_passwort_page(e=None):
+
+        def Reset_Password(e):
+            def Final1(e):
+                def Final2(e):
+
+                    print(resetInput.value)
+                if reset_passwort.value == e.control.data:
+                    page.clean()
+                    statustext2 = ft.Text()
+                    resetInput = ft.TextField(
+                    hint_text="Put in the New Password"
+                )
+                    reset_submit2 = ft.ElevatedButton(text="Reset", on_click=Final2)
+                    page.add(resetInput, reset_submit2, statustext2)
+                    
+                else:
+                    statustext1.value == False
+                    time.sleep(3)
+                    Register_Page()
+
+            if is_string(info_text.value):
+                resetpasswortApi = f'http://127.0.0.1:8000/ResetPassword/{info_text.value}'
+                return_from_api_reset = requests.post(resetpasswortApi)
+                jsonreturn = json.loads(return_from_api_reset.text)
+                page.clean()
+                textfield = ft.Text("Put in the Code from the Email")
+                reset_passwort = ft.TextField(
+                    hint_text="Input the code"
+                )
+                reset_submit1 = ft.ElevatedButton(text="Reset", on_click=Final1, data=jsonreturn['code'])
+                statustext1 = ft.Text()
+                page.add(textfield, reset_passwort, reset_submit1, statustext1)
+                
+        page.clean()
+
+        info_text = ft.TextField(
+            hint_text="Input your Email where the code gets send"
+        )
+        reset_submit = ft.ElevatedButton(text="Authenticate", on_click=Reset_Password)
+        statustext = ft.Text(
+        )
+        page.add(info_text, reset_submit, statustext)
+
+    def Register_Page(e=None):  
         page.clean()    
         def register(e):
             is_string_answer = is_string(Email_register.value)
