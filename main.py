@@ -12,6 +12,7 @@ from datetime import datetime
 from dataclasses import dataclass
 import string
 import random
+import keyboard
 
 tracemalloc.start()
 
@@ -58,6 +59,8 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
+    page.vertical_alignment = ft.MainAxisAlignment.START
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     def Chat_Page(e):
         def chatwithfriend(e):
             page.clean()
@@ -303,18 +306,28 @@ def main(page: ft.Page):
         page.add(Register_Link)
 
     def reset_passwort_page(e=None):
-
         def Reset_Password(e):
+            isemailvalidfromresetpassword = requests.post(f'http://127.0.0.1:8000/isemailvalidfrompasswordreserpage/{info_text.value}')
+            jsonreturn = json.loads(isemailvalidfromresetpassword.text)
+                
+            if jsonreturn["bool"] == False:
+                emaildoesntexistalert = ft.AlertDialog(
+                title=ft.Text("Email doesn't exist"),
+                content=ft.Text(f"{info_text.value} doesn't exist, please try a different email"))
+                page.dialog = emaildoesntexistalert
+                emaildoesntexistalert.open = True
+                page.update()
+                return
+            
             def Final1(e):
                 def Final2(e):
-
-                    print(resetInput.value)
+                    apiresetpasswordreturnApi = f'http://127.0.0.1:8000/resetpassword/{info_text.value}/{resetInput.value}'
+                    requests.post(apiresetpasswordreturnApi)
                 if reset_passwort.value == e.control.data:
                     page.clean()
                     statustext2 = ft.Text()
                     resetInput = ft.TextField(
-                    hint_text="Put in the New Password"
-                )
+                    hint_text="Input the New Password")
                     reset_submit2 = ft.ElevatedButton(text="Reset", on_click=Final2)
                     page.add(resetInput, reset_submit2, statustext2)
                     
@@ -327,6 +340,7 @@ def main(page: ft.Page):
                 resetpasswortApi = f'http://127.0.0.1:8000/ResetPassword/{info_text.value}'
                 return_from_api_reset = requests.post(resetpasswortApi)
                 jsonreturn = json.loads(return_from_api_reset.text)
+                statustext.value = f"Status: {jsonreturn['code']}"
                 page.clean()
                 textfield = ft.Text("Put in the Code from the Email")
                 reset_passwort = ft.TextField(
@@ -337,7 +351,6 @@ def main(page: ft.Page):
                 page.add(textfield, reset_passwort, reset_submit1, statustext1)
                 
         page.clean()
-
         info_text = ft.TextField(
             hint_text="Input your Email where the code gets send"
         )

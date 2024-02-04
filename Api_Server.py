@@ -45,6 +45,23 @@ def delete_email_from_online(email, online_list):
     else:
         return
 
+def isemailvalidfrompasswordreserpage_check(email):
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
+    cursor = conn.cursor()
+
+    cursor.execute(f"SELECT COUNT(*) FROM users WHERE email=?", (email,))
+
+    result = cursor.fetchone()
+
+    if result[0] > 0:
+        return {
+    "bool": True
+} 
+    else:
+        return {
+    "bool": False
+} 
+
 def AddUserIDtoEmail(email, email_friend):
     conn = sqlite3.connect('My-App/My-App/user_database.db')
     cursor = conn.cursor()
@@ -84,6 +101,19 @@ def AddUserIDtoEmail(email, email_friend):
     elif friend_id is None:
         print(f"Friend with email '{email_friend}' not found.")
 
+    conn.close()
+
+def update_password(user, password): 
+    print(user, password)
+    conn = sqlite3.connect('My-App/My-App/user_database.db')
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        UPDATE users SET password = ?
+        WHERE email = ?
+    ''', (password, user,))
+
+    conn.commit()
     conn.close()
 
 def get_chat_messages(user_id: str, friend_id: str):
@@ -364,11 +394,18 @@ def DeleteMessage(message_id):
             "message_id": None
         }
         return jsonstring
-@app.post("/resetpassword/{password}")
-def resetpassword(password):
+    
+@app.post("/resetpassword/{email}/{password}")
+def resetpassword(email, password):
     hashed_password = hashlib.sha256(password.encode()).hexdigest()
-    update_password(hashed_password)
+    update_password(email, hashed_password)
     return
+
+@app.post("/isemailvalidfrompasswordreserpage/{email}")
+def isemailvalidfrompasswordreserpage(email):
+    resultjson = isemailvalidfrompasswordreserpage_check(email)
+    return resultjson
+
 @app.websocket("/gettext/{user_id}/{friend_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str):
     await websocket.accept()
