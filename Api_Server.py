@@ -115,6 +115,7 @@ def update_password(user, password):
 
     conn.commit()
     conn.close()
+    SendPasswordInformationResetEmail(email=user)
 
 def get_chat_messages(user_id: str, friend_id: str):
     conn = sqlite3.connect('My-App/My-App/user_database.db')
@@ -433,6 +434,66 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str, friend_id: str)
             
     except Exception as e:
         print(f"WebSocket closed with exception: {e}")
+
+
+from fastapi import FastAPI, UploadFile, File, HTTPException
+import shutil
+import os
+import sqlite3
+from pydantic import BaseModel
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+# Connect to SQLite database
+conn = sqlite3.connect('images.db')
+cursor = conn.cursor()
+
+# Create table for storing image links
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        filename TEXT NOT NULL,
+        link TEXT NOT NULL
+    )
+''')
+conn.commit()
+
+class Image(BaseModel):
+    user_id: int
+    filename: str
+    link: str
+
+@app.post("/upload/")
+async def upload_image(user_id: int, file: UploadFile = File(...)):
+    try:
+        # Create directory if it doesn't exist
+        if not os.path.exists('uploads'):
+            os.makedirs('uploads')
+        
+        # Save the file to the directory using the user's name as the filename
+        filename = f"{user_id}_{file.filename}"
+        with open(f'uploads/{filename}', 'wb') as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Save the image link to the database
+        image_link = f"http://0.0.0.0:8000/uploads/{filename}"  # Update with your domain
+        cursor.execute("INSERT INTO images (user_id, filename, link) VALUES (?, ?, ?)", (user_id, filename, image_link))
+        conn.commit()
+        image_path = Path("uploads/{filename}")
+        return FileResponse(image_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/images/{user_id}")
+async def get_images(user_id: int):
+    try:
+        cursor.execute("SELECT * FROM images WHERE user_id=?", (user_id,))
+        images = cursor.fetchall()
+        image_path = Path(f"uploads/{images[2]}")
+        return FileResponse(image_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

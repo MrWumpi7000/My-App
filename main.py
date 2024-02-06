@@ -252,15 +252,15 @@ def main(page: ft.Page):
             Register_Page()
 
         NavigationBar = ft.AppBar(
-            leading=ft.Icon(ft.icons.PALETTE),
+            leading=ft.CircleAvatar(
+            content=ft.Icon(ft.icons.ABC)),
+            color=ft.colors.WHITE,
             leading_width=40,
-            title=ft.Text(f"Welcome {page.client_storage.get('email')}"),
-            center_title=False,
+            title=ft.Text(f"Welcome {page.client_storage.get('email')}", font_family="Helvetica", color="WHITE", weight=ft.FontWeight.BOLD),
+            center_title=True,
 
-            bgcolor=ft.colors.SURFACE_VARIANT,
+            bgcolor=ft.colors.DEEP_PURPLE_300,
             actions=[
-                ft.IconButton(ft.icons.WB_SUNNY_OUTLINED),
-                ft.IconButton(ft.icons.FILTER_3),
                 ft.PopupMenuButton(
                     items=[
                         ft.PopupMenuItem(
@@ -302,7 +302,7 @@ def main(page: ft.Page):
 
         page.add(Email_register, Password_register, Register_Sumbit,Reset_passwort, status_text_bar)
 
-        Register_Link = ft.TextButton("Register", on_click=Register_Page)
+        Register_Link = ft.TextButton("Register Page", on_click=Register_Page)
         page.add(Register_Link)
 
     def reset_passwort_page(e=None):
@@ -323,18 +323,31 @@ def main(page: ft.Page):
                 def Final2(e):
                     apiresetpasswordreturnApi = f'http://127.0.0.1:8000/resetpassword/{info_text.value}/{resetInput.value}'
                     requests.post(apiresetpasswordreturnApi)
+
+                    resettedpasswordAlertDialog = ft.AlertDialog(
+                    title=ft.Text("Succcess!"),
+                    content=ft.Text(f"Your Password has been Resseted and your are now getting redirected to the Home Page!"))
+                    page.dialog = resettedpasswordAlertDialog
+                    resettedpasswordAlertDialog.open = True
+                    page.update()
+                    time.sleep(3)
+                    Login_Page()
+
                 if reset_passwort.value == e.control.data:
                     page.clean()
                     statustext2 = ft.Text()
                     resetInput = ft.TextField(
                     hint_text="Input the New Password")
-                    reset_submit2 = ft.ElevatedButton(text="Reset", on_click=Final2)
+                    reset_submit2 = ft.ElevatedButton(text="Reset Your Password", on_click=Final2)
                     page.add(resetInput, reset_submit2, statustext2)
                     
                 else:
-                    statustext1.value == False
-                    time.sleep(3)
-                    Register_Page()
+                    codewaswrong = ft.AlertDialog(
+                    title=ft.Text("The Code wasn't right"),
+                    content=ft.Text(f"Please try a different one"))
+                    page.dialog = codewaswrong
+                    codewaswrong.open = True
+                    page.update()
 
             if is_string(info_text.value):
                 resetpasswortApi = f'http://127.0.0.1:8000/ResetPassword/{info_text.value}'
@@ -342,11 +355,11 @@ def main(page: ft.Page):
                 jsonreturn = json.loads(return_from_api_reset.text)
                 statustext.value = f"Status: {jsonreturn['code']}"
                 page.clean()
-                textfield = ft.Text("Put in the Code from the Email")
+                textfield = ft.Text("Put in the Code from the Email", size=30 )
                 reset_passwort = ft.TextField(
                     hint_text="Input the code"
                 )
-                reset_submit1 = ft.ElevatedButton(text="Reset", on_click=Final1, data=jsonreturn['code'])
+                reset_submit1 = ft.ElevatedButton(text="Sumbit Code", on_click=Final1, data=jsonreturn['code'])
                 statustext1 = ft.Text()
                 page.add(textfield, reset_passwort, reset_submit1, statustext1)
                 
@@ -380,8 +393,7 @@ def main(page: ft.Page):
 
         page.add(Email_register, Password_register, Register_Sumbit, status_text_bar)
 
-        Login_Link = ft.TextButton("Login", on_click=Login_Page)
-
+        Login_Link = ft.TextButton("Login Page", on_click=Login_Page)
 
         page.add(Login_Link)
     
