@@ -59,6 +59,25 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
+
+    def upload_image(image_path):
+        upload_endpoint = f"http://0.0.0.0:8000/upload/{page.client_storage.get('email')}"
+        try:
+            with open(image_path, "rb") as file:
+                filename = image_path.split('/')[-1]
+                files = {'file': (filename, file, 'image/jpeg')}
+                response = requests.post(upload_endpoint, files=files)
+
+            if response.status_code == 200:
+                print("Image uploaded successfully!")
+                print("Response:", response.json())
+            else:
+                print("Failed to upload image:", response.status_code)
+                print("Error message:", response.text)
+        except Exception as e:
+            print("An error occurred:", e)
+
+
     page.vertical_alignment = ft.MainAxisAlignment.START
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     def Chat_Page(e):
@@ -243,6 +262,36 @@ def main(page: ft.Page):
                 ListOnlineUser = ft.TextButton(text=f"Add: {user}", on_click=AddUserToFriendList, data=user)
                 page.add(ListOnlineUser)
 
+    def AccountSettings_Page(e=None):
+        page.clean()
+        page.title = f"Account Settings"
+        CircleAvater=ft.CircleAvatar(foreground_image_url="https://avatars.githubusercontent.com/u/5041459?s=88&v=4" ,content=ft.Icon(ft.icons.ABC),radius=100)
+        usersname = ft.Text(f"Hello, {page.client_storage.get('email')}", size=20)
+     
+        def pick_files_result(e: ft.FilePickerResultEvent):
+            file_paths = [file_info.path for file_info in e.files]
+            print(file_paths)
+
+            if e.files:
+                first_file_path = e.files[0].path
+                print(first_file_path)
+                upload_image(image_path=first_file_path)
+
+        pick_files_dialog = ft.FilePicker(on_result=pick_files_result)
+        page.overlay.append(pick_files_dialog)
+
+        Upload_Row = ft.ElevatedButton(
+                        "Pick files",
+                        icon=ft.icons.UPLOAD_FILE,
+                        on_click=lambda _: pick_files_dialog.pick_files(
+                            allow_multiple=False, file_type="IMAGE"
+                        )
+                    )
+        
+
+        page.add(CircleAvater, usersname, Upload_Row)
+        page.update()
+
     def Home_Page(e=None):
         requests.post(f"http://127.0.0.1:8000/OnlineUser/{page.client_storage.get('email')}")
         page.clean()
@@ -274,6 +323,9 @@ def main(page: ft.Page):
                         ),
                         ft.PopupMenuItem(
                             text="Qr Code Generator", checked=False
+                        ),
+                        ft.PopupMenuItem(
+                            text="Account Settings", checked=False, on_click=AccountSettings_Page
                         )
                     ]
                 ),
