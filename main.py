@@ -265,7 +265,7 @@ def main(page: ft.Page):
     def AccountSettings_Page(e=None):
         page.clean()
         page.title = f"Account Settings"
-        CircleAvater=ft.CircleAvatar(foreground_image_url="https://avatars.githubusercontent.com/u/5041459?s=88&v=4" ,content=ft.Icon(ft.icons.ABC),radius=100)
+        CircleAvater=ft.CircleAvatar(foreground_image_url="http://0.0.0.0:8000/get_image/jasper@grevsmuehl.net" ,content=ft.Icon(ft.icons.ABC),radius=100)
         usersname = ft.Text(f"Hello, {page.client_storage.get('email')}", size=20)
      
         def pick_files_result(e: ft.FilePickerResultEvent):
