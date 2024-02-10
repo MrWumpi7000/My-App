@@ -446,6 +446,9 @@ async def upload_image(user, file: UploadFile = File(...)):
             os.makedirs('uploads')
         name, extension = os.path.splitext(file.filename)
         new_filename = f'{user}{extension}'
+        existing_files = [filename for filename in os.listdir('uploads') if filename.startswith(user + ".") and os.path.splitext(filename)[1] != extension]
+        for existing_file in existing_files:
+            os.remove(os.path.join('uploads', existing_file))
         with open(f'uploads/{new_filename}', 'wb') as buffer:
             shutil.copyfileobj(file.file, buffer)
         file_path = f'uploads/{new_filename}'
@@ -464,7 +467,7 @@ def get_image(user: str):
         
         # If no image exists with the user's name, return the example image
         if not user_images:
-            return FileResponse("/home/freundchen/workspace/uploads/")
+            return FileResponse("/home/freundchen/workspace/uploads/defaultProfilePicture.webp")
         
         # If an image exists with the user's name, return that image
         user_image_path = os.path.join('uploads', user_images[0])

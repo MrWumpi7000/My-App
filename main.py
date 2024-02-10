@@ -71,6 +71,8 @@ def main(page: ft.Page):
             if response.status_code == 200:
                 print("Image uploaded successfully!")
                 print("Response:", response.json())
+                page.clean()
+                AccountSettings_Page()
             else:
                 print("Failed to upload image:", response.status_code)
                 print("Error message:", response.text)
@@ -265,7 +267,21 @@ def main(page: ft.Page):
     def AccountSettings_Page(e=None):
         page.clean()
         page.title = f"Account Settings"
-        CircleAvater=ft.CircleAvatar(foreground_image_url="http://0.0.0.0:8000/get_image/jasper@grevsmuehl.net" ,content=ft.Icon(ft.icons.ABC),radius=100)
+        page.horizontal_alignment = page.vertical_alignment = "center"
+
+        bab = ft.BottomAppBar(
+        bgcolor=ft.colors.DEEP_PURPLE_300,
+        shape=ft.NotchShape.CIRCULAR,
+        content=ft.Row(
+            controls=[
+                ft.IconButton(icon=ft.icons.HOME, icon_color=ft.colors.WHITE, on_click=Home_Page),
+                ft.Container(expand=True),
+                ft.IconButton(icon=ft.icons.SEARCH, icon_color=ft.colors.WHITE),
+                ft.IconButton(icon=ft.icons.FAVORITE, icon_color=ft.colors.WHITE),
+            ]
+        ),
+    )
+        CircleAvater=ft.CircleAvatar(foreground_image_url=f"http://0.0.0.0:8000/get_image/{page.client_storage.get('email')}" ,content=ft.Icon(ft.icons.ABC),radius=100)
         usersname = ft.Text(f"Hello, {page.client_storage.get('email')}", size=20)
      
         def pick_files_result(e: ft.FilePickerResultEvent):
@@ -276,6 +292,7 @@ def main(page: ft.Page):
                 first_file_path = e.files[0].path
                 print(first_file_path)
                 upload_image(image_path=first_file_path)
+            
 
         pick_files_dialog = ft.FilePicker(on_result=pick_files_result)
         page.overlay.append(pick_files_dialog)
@@ -289,7 +306,7 @@ def main(page: ft.Page):
                     )
         
 
-        page.add(CircleAvater, usersname, Upload_Row)
+        page.add(CircleAvater, usersname, Upload_Row, bab)
         page.update()
 
     def Home_Page(e=None):
@@ -301,8 +318,7 @@ def main(page: ft.Page):
             Register_Page()
 
         NavigationBar = ft.AppBar(
-            leading=ft.CircleAvatar(
-            content=ft.Icon(ft.icons.ABC)),
+            leading=ft.CircleAvatar(foreground_image_url=f"http://0.0.0.0:8000/get_image/{page.client_storage.get('email')}"),
             color=ft.colors.WHITE,
             leading_width=40,
             title=ft.Text(f"Welcome {page.client_storage.get('email')}", font_family="Helvetica", color="WHITE", weight=ft.FontWeight.BOLD),
