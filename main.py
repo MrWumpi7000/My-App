@@ -59,6 +59,47 @@ def is_string(email):
     return bool(match)
 
 def main(page: ft.Page):
+    def Download_video_page(e = None):
+        page.clean()
+    def Tools_Page(e = None):
+        page.clean()
+        rail = ft.NavigationRail(
+        selected_index=0,
+        label_type=ft.NavigationRailLabelType.ALL,
+      #  extended=True,
+        min_width=100,
+        min_extended_width=400,
+        #leading=ft.FloatingActionButton(icon=ft.icons.CREATE, text="Add"),
+        group_alignment=-0.9,
+        destinations=[
+            ft.NavigationRailDestination(
+                icon=ft.icons.FAVORITE_BORDER, selected_icon=ft.icons.FAVORITE, label="First"
+            ),
+            ft.NavigationRailDestination(
+                icon_content=ft.Icon(ft.icons.BOOKMARK_BORDER),
+                selected_icon_content=ft.Icon(ft.icons.BOOKMARK),
+                label="Second",
+                
+            ),
+            ft.NavigationRailDestination(
+                icon=ft.icons.SETTINGS_OUTLINED,
+                selected_icon_content=ft.Icon(ft.icons.SETTINGS),
+                label_content=ft.Text("Settings"),
+            ),
+        ],
+    on_change = lambda e: (Download_video_page() if e.control.selected_index == 0 else (Tools_Page() if e.control.selected_index == 1 else (Tools_Page() if e.control.selected_index == 2 else None)))
+    )
+
+        page.add(
+            ft.Row(
+                [
+                    rail,
+                    ft.VerticalDivider(width=1),
+                    ft.Column([ ft.Text("Body!")], alignment=ft.MainAxisAlignment.START, expand=True),
+                ],
+                expand=True,
+            )
+        )
 
     def upload_image(image_path):
         upload_endpoint = f"http://0.0.0.0:8000/upload/{page.client_storage.get('email')}"
@@ -338,7 +379,7 @@ def main(page: ft.Page):
                             text="Chat Page", checked=False, on_click=Chat_Page
                         ),
                         ft.PopupMenuItem(
-                            text="Qr Code Generator", checked=False
+                            text="Tools", checked=False, on_click=Tools_Page
                         ),
                         ft.PopupMenuItem(
                             text="Account Settings", checked=False, on_click=AccountSettings_Page

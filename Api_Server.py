@@ -3,7 +3,7 @@ from fastapi import FastAPI
 import sqlite3
 import hashlib
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, Response, WebSocketDisconnect
 from fastapi.responses import FileResponse
 import asyncio
 import random
@@ -11,6 +11,11 @@ import string
 from fastapi import FastAPI, UploadFile, File
 import shutil
 import os
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import FileResponse
+from pytube import YouTube
+import aiofiles
+import aiohttp
 
 connections = {}
 
@@ -400,6 +405,47 @@ def DeleteMessage(message_id):
         }
         return jsonstring
     
+async def download_chunk(session, url, start, end, file_path):
+    headers = {'Range': f'bytes={start}-{end}'}
+    async with session.get(url, headers=headers) as response:
+        response.raise_for_status()
+        async with aiofiles.open(file_path, 'r+b') as f:
+            await f.seek(start)
+            async for chunk in response.content.iter_any():
+                await f.write(chunk)
+
+@app.post("/download")
+async def download_video(youtube_url: str):
+    try:
+        # Download the YouTube video
+        yt = YouTube(youtube_url)
+        stream = yt.streams.get_highest_resolution()
+        file_path = f"temp/{yt.title}.mp4"
+
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            async with aiofiles.open(file_path, 'wb') as f:
+                total_size = int(stream.filesize)
+                chunk_size = total_size // 5  # Split the download into 5 chunks
+                for i in range(0, total_size, chunk_size):
+                    start = i
+                    end = min(i + chunk_size - 1, total_size - 1)
+                    task = download_chunk(session, stream.url, start, end, file_path)
+                    tasks.append(task)
+                await asyncio.gather(*tasks)
+
+        # Stream the downloaded video directly to the client
+        with open(file_path, "rb") as video_file:
+            return Response(video_file, media_type="video/mp4")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        # Delete the downloaded video from the server
+        if os.path.exists(file_path):
+            os.remove(file_path)
+                    
 @app.post("/resetpassword/{email}/{password}")
 def resetpassword(email, password):
     hashed_password = hashlib.sha256(password.encode()).hexdigest()
