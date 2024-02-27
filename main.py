@@ -3,6 +3,7 @@ import requests
 import json
 import re
 import time
+from pytube import YouTube
 import asyncio
 import websockets
 import hashlib
@@ -12,7 +13,9 @@ from datetime import datetime
 from dataclasses import dataclass
 import string
 import random
+import os
 import keyboard
+from pathlib import Path
 
 tracemalloc.start()
 
@@ -21,6 +24,16 @@ class Messageclass:
     user: str
     text: str
     timestamp: datetime
+
+def download_youtube_video(link, e = None):
+    try:
+        yt = YouTube(link)
+        output_path = os.path.join(os.path.dirname(__file__), yt.title + '.mp4')
+        video_stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+        video_stream.download(output_path=output_path)
+        print("Download completed successfully!")
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
 
 def combine_and_hash(str1, str2):
     combined_string = ''.join(sorted([str1, str2]))
@@ -60,7 +73,14 @@ def is_string(email):
 
 def main(page: ft.Page):
     def Download_video_page(e = None):
+        def button_clicked(e):
+            print("click")
+            download_youtube_video(youtube_input_link.value)
         page.clean()
+        Heading = ft.Text("Hey, put in your download link into the input field to download your video!")
+        youtube_input_link = ft.TextField(label="Standard")
+        download_link_sumbit = ft.ElevatedButton(text="Submit", on_click=button_clicked)
+        page.add(Heading, youtube_input_link, download_link_sumbit)
     def Tools_Page(e = None):
         page.clean()
         rail = ft.NavigationRail(
